@@ -16,6 +16,9 @@ Copyright Alex Gisby <alex@solution10.com>
 import sys
 import re
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
 import os
 from collections import Counter
 from PIL import Image
@@ -43,15 +46,25 @@ class ImgurAlbumException(Exception):
 
 
 class ImgurAlbumDownloader:
-    def __init__(self, album_url:str, extn:list = None):
+    def __init__(self, album_url:str , extn:list = None, retry_strategy:Retry = None):
         """
         Will download an Imgur album given by the URL on construction. URL will be checked for validity.
         
         :param album_url: The URL of the Imgur album to download.
         :param extn: A list of file extensions to look for. Defaults to All
+        :param retry_strategy: A Retry strategy to use for the requests. Defaults to 4 retries with exponential backoff.
         """
         self.album_url = album_url
 
+        if not retry_strategy:
+            # Default retry strategy, with 4 retries and exponential backoff
+            retry_strategy = Retry(
+                total=4,
+                backoff_factor=1, # 1, 2, 4, 8, 16 seconds between retries
+                status_forcelist=[429, 500, 502, 503, 504],
+                allowed_methods=["GET"]
+            )
+        
         # Callback members:
         self.image_callbacks = []
         self.complete_callbacks = []
@@ -67,8 +80,21 @@ class ImgurAlbumDownloader:
         # Read the no-script version of the page for all the images:
         fullListURL = "http://imgur.com/a/" + self.album_key + "/layout/blog"
 
+
+        # Create a requests session with the retry strategy
+        self.session = requests.Session()
+        self.session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
+        self.session.mount("http://", HTTPAdapter(max_retries=retry_strategy))
+        
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'image/*,text/html;q=0.8,*/*;q=0.7',
+            'Referer': 'https://imgur.com/'
+        }
+        
+        # Use the session to get the image with retries, redirects and headers
         try:
-            self.response = requests.get(fullListURL)
+            self.response = self.session.get(fullListURL, headers=self.headers, allow_redirects=True, timeout=30)
             response_code = self.response.status_code
         except Exception as e:
             self.response = False
@@ -84,7 +110,7 @@ class ImgurAlbumDownloader:
         
         ## this is likely to have a lot of duplicates, so let's kill those
         self.imageIDs = list(set([i[0:2] for i in self.imageIDs]))
-        self.imageURLs = ["http://i.imgur.com/" + i[0] + i[1] for i in self.imageIDs]
+        self.imageURLs = ["https://i.imgur.com/" + i[0] + i[1] for i in self.imageIDs]
         
         
         self.cnt = Counter()
@@ -172,7 +198,7 @@ class ImgurAlbumDownloader:
                 print ("Skipping, already exists.")
             else:
                 try:
-                    imageRequest = requests.get(image_url)
+                    imageRequest = self.session.get(image_url, headers=self.headers, allow_redirects=True, timeout=30)
                     imageData = imageRequest.content
                     
                     im = Image.open(BytesIO(imageData))
@@ -184,7 +210,7 @@ class ImgurAlbumDownloader:
                             fobj.write(imageData)
                 except:
                     print ("Download failed.")
-                    os.remove(path)
+                    if os.path.exists(path): os.remove(path)
 
         # Run the complete callbacks:
         for fn in self.complete_callbacks:
