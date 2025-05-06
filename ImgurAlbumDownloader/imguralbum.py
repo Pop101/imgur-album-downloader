@@ -18,10 +18,12 @@ import re
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from requests.exceptions import ConnectionError, Timeout, HTTPError, RequestException, TooManyRedirects
+from requests.packages.urllib3.exceptions import MaxRetryError
 
 import os
 from collections import Counter
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from io import BytesIO
 
 
@@ -46,7 +48,7 @@ class ImgurAlbumException(Exception):
 
 
 class ImgurAlbumDownloader:
-    def __init__(self, album_url:str , extn:list = None, retry_strategy:Retry = None):
+    def __init__(self, album_url:str , extn:list = None, retry_strategy:Retry = None, verbose:bool = False):
         """
         Will download an Imgur album given by the URL on construction. URL will be checked for validity.
         
@@ -55,6 +57,7 @@ class ImgurAlbumDownloader:
         :param retry_strategy: A Retry strategy to use for the requests. Defaults to 4 retries with exponential backoff.
         """
         self.album_url = album_url
+        self.verbose = verbose
 
         if not retry_strategy:
             # Default retry strategy, with 4 retries and exponential backoff
@@ -195,7 +198,7 @@ class ImgurAlbumDownloader:
 
             # Actually download the thing
             if os.path.isfile(path):
-                print ("Skipping, already exists.")
+                if self.verbose: print (f"Skipping, {path} alreadyexists.")
             else:
                 try:
                     imageRequest = self.session.get(image_url, headers=self.headers, allow_redirects=True, timeout=30)
@@ -208,8 +211,8 @@ class ImgurAlbumDownloader:
                     if not (w == 161 and h == 81): # this is the imgur image not found jpg
                         with open(path, 'wb') as fobj:
                             fobj.write(imageData)
-                except:
-                    print ("Download failed.")
+                except (ConnectionError, Timeout, HTTPError, RequestException, TooManyRedirects, UnidentifiedImageError) as e:
+                    if self.verbose: print (f"Download failed: {type(e).__name__} {e}")
                     if os.path.exists(path): os.remove(path)
 
         # Run the complete callbacks:
@@ -228,7 +231,7 @@ if __name__ == '__main__':
 
     try:
         # Fire up the class:
-        downloader = ImgurAlbumDownloader(args[1])
+        downloader = ImgurAlbumDownloader(args[1], verbose=True)
 
         print(("Found {0} images in album".format(downloader.num_images())))
 
