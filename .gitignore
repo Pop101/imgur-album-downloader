@@ -5,3 +5,4 @@ Imgur_Album_Downloader.egg-info/*
 .pydevproject
 .project
 .settings/*
+*.pyc
