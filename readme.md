@@ -11,7 +11,7 @@ to 12,500 images per day), this script isn't bulletproof, but it is useful.
 ## Installation 
 
 The latest version can be installed using `pip`:
-    pip install --upgrade git+https://github.com/jmcurran/imgur-album-downloader.git@jmc001
+    pip install --upgrade git+https://github.com/Pop101/imgur-album-downloader.git
 
 ## Requirements
 
