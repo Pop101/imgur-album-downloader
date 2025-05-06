@@ -73,12 +73,12 @@ class ImgurAlbumDownloader:
         self.complete_callbacks = []
 
         # Check the URL is actually imgur:
-        match = re.match(r"(https?)\:\/\/(www\.)?(?:m\.)?imgur\.com/(a|gallery)/([a-zA-Z0-9]+)(#[0-9]+)?", album_url)
+        match = re.match(r"(https?)\:\/\/(www\.)?(?:m\.)?imgur\.com/(?:(?:a|gallery)/)?([a-zA-Z0-9]+)(#[0-9]+)?", album_url)
         if not match:
             raise ImgurAlbumException("URL must be a valid Imgur Album {}".format(album_url))
 
         self.protocol = match.group(1)
-        self.album_key = match.group(4)
+        self.album_key = match.group(3)
 
         # Read the no-script version of the page for all the images:
         fullListURL = "http://imgur.com/a/" + self.album_key + "/layout/blog"
