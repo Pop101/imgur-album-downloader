@@ -3,3 +3,4 @@ build/*
 dist/*
 Imgur_Album_Downloader.egg-info/*
 .pydevproject
+.settings/*
