@@ -43,23 +43,21 @@ class ImgurAlbumException(Exception):
 
 
 class ImgurAlbumDownloader:
-    def __init__(self, album_url, extn = None):
+    def __init__(self, album_url:str, extn:list = None):
         """
-        Constructor. Pass in the album_url that you want to download.
+        Will download an Imgur album given by the URL on construction. URL will be checked for validity.
+        
+        :param album_url: The URL of the Imgur album to download.
+        :param extn: A list of file extensions to look for. Defaults to All
         """
         self.album_url = album_url
-        
-        if extn==None:
-            self.extn = 'jpe?g|png|gif'
-        else:
-            self.extn = extn
 
         # Callback members:
         self.image_callbacks = []
         self.complete_callbacks = []
 
         # Check the URL is actually imgur:
-        match = re.match("(https?)\:\/\/(www\.)?(?:m\.)?imgur\.com/(a|gallery)/([a-zA-Z0-9]+)(#[0-9]+)?", album_url)
+        match = re.match(r"(https?)\:\/\/(www\.)?(?:m\.)?imgur\.com/(a|gallery)/([a-zA-Z0-9]+)(#[0-9]+)?", album_url)
         if not match:
             raise ImgurAlbumException("URL must be a valid Imgur Album {}".format(album_url))
 
@@ -81,7 +79,8 @@ class ImgurAlbumDownloader:
 
         # Read in the images now so we can get stats and stuff:
         html = self.response.text
-        self.imageIDs = re.findall('.*?{"hash":"([a-zA-Z0-9]+)".*?"ext":"(\.(' + self.extn + '))".*?', html)
+        ext_regex = r"(\.(" + '|'.join(extn) + "))" if extn else ".*?"
+        self.imageIDs = re.findall(r'.*?{"hash":"([a-zA-Z0-9]+)".*?"ext":"(\.(' + ext_regex + '))".*?', html)
         
         ## this is likely to have a lot of duplicates, so let's kill those
         self.imageIDs = list(set([i[0:2] for i in self.imageIDs]))
