@@ -70,6 +70,7 @@ class ImgurAlbumDownloader:
         
         # Callback members:
         self.image_callbacks = []
+        self.success_callbacks = []
         self.complete_callbacks = []
 
         # Check the URL is actually imgur:
@@ -153,6 +154,14 @@ class ImgurAlbumDownloader:
         """
         self.image_callbacks.append(callback)
 
+    def on_download_success(self, callback):
+        """
+        Allows you to bind a function that will be called after an image is downloaded sucessfully.
+        You'll be given the 1-indexed position of the image, it's URL
+        and it's destination file in the callback like so:
+            my_awesome_callback(1, "http://i.imgur.com/fGWX0.jpg", "~/Downloads/1-fGWX0.jpg")
+        """
+        self.success_callbacks.append(callback)
 
     def on_complete(self, callback):
         """
@@ -208,10 +217,16 @@ class ImgurAlbumDownloader:
                     w, h = im.size
                     im.close()
                     
-                    if not (w == 161 and h == 81): # this is the imgur image not found jpg
-                        with open(path, 'wb') as fobj:
-                            fobj.write(imageData)
-                except (ConnectionError, Timeout, HTTPError, RequestException, TooManyRedirects, UnidentifiedImageError) as e:
+                    if (w == 161 and h == 81): # this is the imgur image not found jpg
+                        continue
+                    
+                    with open(path, 'wb') as fobj:
+                        fobj.write(imageData)
+                    
+                    for fn in self.success_callbacks:
+                        fn(counter, image_url, path)    
+                    
+                except (ConnectionError, Timeout, HTTPError, RequestException, TooManyRedirects, UnidentifiedImageError, MaxRetryError) as e:
                     if self.verbose: print (f"Download failed: {type(e).__name__} {e}")
                     if os.path.exists(path): os.remove(path)
 
